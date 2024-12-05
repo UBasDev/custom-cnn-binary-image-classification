@@ -1,4 +1,4 @@
-<h2>This project implements a Convolutional Neural Network (CNN) for binary image classification (cat or dog). Key features include:</h2>
+<h2>This project implements a Convolutional Neural Network (CNN) for binary image classification (cat or dog). All customized by UCBDev. Feel free to use. Key features include:</h2>
 
 <p>Data Loading: Automatically loads and labels images from the train_set and valid_set directories.</p>
 <p>Image Preprocessing: Resizes images to 64x64 pixels and normalizes pixel values.</p>
