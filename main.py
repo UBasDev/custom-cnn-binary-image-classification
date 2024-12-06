@@ -5,8 +5,9 @@ from keras import Sequential
 from keras.src.layers import Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from keras.src.utils.image_dataset_utils import image_dataset_from_directory
 from keras.src.layers import BatchNormalization, Rescaling, RandomFlip, RandomRotation, RandomZoom, RandomBrightness, RandomContrast, RandomTranslation, RandomCrop
-from keras.src.callbacks import EarlyStopping, ReduceLROnPlateau
+from keras.src.callbacks import EarlyStopping, ReduceLROnPlateau, ModelCheckpoint
 from keras.api.models import load_model
+from keras.src.optimizers import Adam
 
 # Path to the saved model
 model_path = 'trained_model.keras'
@@ -46,15 +47,17 @@ while True: # Continuous training loop
         classifier.add(Dropout(0.5))
         classifier.add(Dense(units=256, activation='relu'))
         classifier.add(Dropout(0.5))
-        classifier.add(Dense(units=1, activation='sigmoid'))
+        classifier.add(Dense(units=3, activation='softmax'))
     
         # Compile the CNN
-        classifier.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+        # Compile the model with gradient clipping
+        # optimizer = Adam(clipvalue=1.0)
+        classifier.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     
     train_dataset = image_dataset_from_directory(
         'dataset/train_set',
         labels='inferred',  # Labels are inferred from subdirectory names
-        label_mode='binary',  # Binary classification (cat or dog)
+        label_mode='categorical',  # Change to 'categorical' for multi-class classification
         image_size=(64, 64),  # Resize images to 64x64. This is final image size. Ensure image size matches model input
         batch_size=32,  # Adjust batch size if needed
         shuffle=True  # Shuffle train data for evaluation
@@ -63,7 +66,7 @@ while True: # Continuous training loop
     validation_dataset = image_dataset_from_directory(
        'dataset/valid_set',
         labels='inferred',  # Labels are inferred from subdirectory names
-        label_mode='binary',  # Binary classification (cat or dog)
+        label_mode='categorical',  # Change to 'categorical' for multi-class classification
         image_size=(64, 64),  # Resize images to 64x64. This is final image size. Ensure image size matches model input
         batch_size=32,  # Adjust batch size if needed
         shuffle=False  # Don't shuffle test data for evaluation
@@ -82,7 +85,7 @@ while True: # Continuous training loop
         RandomContrast(0.1),
         RandomBrightness(0.1),
         RandomTranslation(0.1, 0.1),
-        RandomCrop(64, 64) # Ensure image size matches model input
+        RandomCrop(64, 64), # Ensure image size matches model input
     ])
     
     # Apply data augmentation to the training dataset
@@ -91,8 +94,10 @@ while True: # Continuous training loop
     # Early stopping callback
     early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
     
-    # Learning rate scheduler callback
-    lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3)
+    lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3)
+    
+    # Model checkpoint callback
+    model_checkpoint = ModelCheckpoint('trained_model.keras', monitor='val_loss', save_best_only=True)
     
     # Define a function to get the average of specified metrics from the saved model
     def get_metrics_averages(model_path):
@@ -129,7 +134,7 @@ while True: # Continuous training loop
         train_dataset,
         epochs=25,
         validation_data=validation_dataset,
-        callbacks=[early_stopping, lr_scheduler]
+        callbacks=[early_stopping, lr_scheduler, model_checkpoint]
     )
     
     # Get the averages of the specified metrics for the current model
@@ -156,6 +161,7 @@ while True: # Continuous training loop
     # Save the model only if it shows improvement
     # if accuracy_improvement > 0 and loss_improvement > 0: # yani her ikisi de artmışsa
     if accuracy_improvement + loss_improvement > 0: # yani totalde bir artış varsa, emsela bir tanesi 0.5 ARTMIŞ ve diğeri 0.4 AZALMIŞSA, totalde 0.1 artış olmuş olur ve kaydeder.
+        
         classifier.save(model_path)
         
         with open('result_logs/better_results.txt', 'a') as f:
@@ -166,5 +172,6 @@ while True: # Continuous training loop
         with open(history_path, 'w') as f:
             json.dump(history.history, f)
     else:
+        
         with open('result_logs/same_or_worst_results.txt', 'a') as f:
             f.write(log_format)
